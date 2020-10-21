@@ -2,52 +2,97 @@ import algoAPI.Side;
 import events.book.LeanQuote;
 import events.book.Manageable;
 import events.book.OrderBook;
+import events.feed.InitializeTradableEvent;
 import net.openhft.chronicle.Chronicle;
 import net.openhft.chronicle.ChronicleQueueBuilder;
 import net.openhft.chronicle.ExcerptTailer;
 import org.agrona.collections.Int2ObjectHashMap;
+import org.apache.log4j.Logger;
+import utils.DateUtils;
 
 import java.io.File;
+import java.io.IOException;
 
 public class ChronicleTailer {
+    private static Logger log = Logger.getLogger(ChronicleTailer.class);
 
-    static String readFilename = "RTAlgorithms_200910_020726_1603046265919";
-    static String pathStr = "C:/Users/Mati/AppData/Local/Temp/DB/chronicle/" + readFilename;
+    static String queuePath = "C:/Users/Mati/AppData/Local/Temp/DB/chronicle/";
+    static String readFilename = MainPlayer.fileName;
+
+    static String pathStr = queuePath + readFilename;
+
     static int tailed = 0;
     static int iter = 1;
 
     public static void main(String[] args) {
+        ChronicleTailer tailer = new ChronicleTailer(pathStr);
         for (; iter < 10_000; iter++)
-            run();
+            tailer.run();
     }
 
-    private static void run() {
-        Int2ObjectHashMap<OrderBook> books = new Int2ObjectHashMap<>();
-        ChronicleTailer tailer = new ChronicleTailer(pathStr);
-        Object event = null;
+    Int2ObjectHashMap<OrderBook> books = new Int2ObjectHashMap<>();
+
+    private void run() {
+        try {
+            initBooks();
+            this.tailer = queue.createTailer();
+            this.tailer.toStart();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
         tailed = 0;
         long start = System.currentTimeMillis();
-        do {
+        Manageable event;
+        while ((event = getNext(tailer)) != null) {
             try {
-                event = getNext(tailer.tailer);
+                int securityId = event.getSecurityId();
+                if (securityId == 569388)
+                    continue;
                 tailed++;
-                if (!(event instanceof Manageable)) continue;
-                int securityId = ((Manageable) event).getSecurityId();
-                if (!books.containsKey(securityId))
-                    books.put(securityId, new OrderBook(10, 0.5f, false));
-                OrderBook book = books.get(securityId);
-                book.assimilate((Manageable) event);
+
+                OrderBook book = getBook(securityId);
+                book.assimilate(event);
+                // Necessary for spread calculation
                 book.flush();
-                if (tailed % (100_000 + iter) == 0)
-                    System.out.println(tailed + "# " + securityId + ": " + book.bookVolume + " | " + book.getTopOfBook() +
-                            " | " + book.getSideOrders(Side.bid).getSize() + " | " + book.getSideOrders(Side.ask).getSize());
+//                    System.out.println(DateUtils.formatDateTimeMicro(event.getTimestamp()));
+
+//                if (tailed % (100_000 + iter) == 0) {
+//                    System.out.println(tailed + "# " + book.initEvent.tradableId + ": " + book.bookVolume +
+//                            " | " + book.getTopOfBook() +
+//                            " | " + book.getSideOrders(Side.bid).getSize() + " | " + book.getSideOrders(Side.ask).getSize());
+//                }
+
+                if (log.isDebugEnabled())
+                    System.out.println(tailed + "# " + securityId + ": " +
+                            book.getSideOrders(Side.bid).getDirtyTob() + " | " + book.getSideOrders(Side.ask).getDirtyTob()
+                            + " \t | " + event);
             } catch (Exception e) {
-                System.out.println(e);
+                log.error("WTF" + event, e);
             }
+        }
 
-        } while (event != null);
+        TestMap.log(iter + "# Done processing batch from memory " + tailed, start);
+    }
 
-        TestMap.log(iter + "# Done loading from memory " + tailed, start);
+    private OrderBook getBook(int securityId) {
+        if (!books.containsKey(securityId)) {
+            InitializeTradableEvent ite = new InitializeTradableEvent();
+            ite.tradableId = securityId;
+            ite.step = 0.25f;
+            ite.marketDepth = 10;
+            ite.impliedLayers = 0;
+            books.put(securityId, new OrderBook(ite));
+        }
+        return books.get(securityId);
+    }
+
+    private void initBooks() {
+        for (OrderBook book : books.values()) {
+            books.replace(book.initEvent.tradableId, new OrderBook(book.initEvent));
+            // SMTH not fully cooked with the clearing mechanism. Top of book
+//            book.clear();
+        }
     }
 
     private Chronicle queue;
@@ -60,15 +105,15 @@ public class ChronicleTailer {
         path = new File(queueName);
         try {
             this.queue = ChronicleQueueBuilder.indexed(path).build();
-            this.tailer = queue.createTailer();
-            this.tailer.toStart();
         } catch (Exception e) {
             System.out.println("Ahhh");
         }
     }
 
-    public static Object getNext(ExcerptTailer tailer) {
-        if (!tailer.nextIndex()) return null;
+    public static LeanQuote getNext(ExcerptTailer tailer) {
+        if (!tailer.nextIndex())
+            return null;
+
         int securityId = tailer.readInt();
         int sequence = tailer.readInt();
         byte typeId = tailer.readByte();

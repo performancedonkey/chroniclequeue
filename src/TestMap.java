@@ -69,7 +69,7 @@ public class TestMap {
             LiveEvent next = player.next();
 
             if (!(next instanceof MarketOrder)) continue;
-            LeanQuote order = getQuote((MarketOrder) next);
+            LeanQuote order = LeanQuote.getQuote((MarketOrder) next);
             key.setValue(order.getId());
             map.put(key, order);
 //                System.out.println(cnt++ + ": " + order);
@@ -113,19 +113,6 @@ public class TestMap {
     }
 
     static boolean isRunning = true;
-
-    public static LeanQuote getQuote(MarketOrder order) {
-        LeanQuote leanQuote = new LeanQuote();
-
-        leanQuote.setSecurityId(order.initEvent.tradableId);
-        leanQuote.set(order.arrivalTime);
-        leanQuote.set(order.xTimestamp);
-        leanQuote.set(order.type.getQuoteType(),
-                order.getSide(), order.price, order.amount, order.orderIdL);
-        leanQuote.setLayer(order.layer);
-
-        return leanQuote;
-    }
 
     protected static int[] generateValueArray(long start) {
         int[] val = new int[VALUE_LENGTH];
