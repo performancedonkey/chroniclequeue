@@ -12,17 +12,19 @@ import org.agrona.collections.Int2ObjectHashMap;
 import org.agrona.collections.IntHashSet;
 import org.apache.log4j.Logger;
 import org.apache.log4j.xml.DOMConfigurator;
+import utils.LogUtil;
 import utils.NanoClock;
 import utils.Paths;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.stream.Collectors;
 
 public class ChronicleLiveTailer {
     private static final Logger log = Logger.getLogger(ChronicleLiveTailer.class);
 
-    int tailed = 0;
-    static int iter = 1;
+    static int iter = 0;
+    int tailed = 0, assimilated = 0;
     private final boolean shouldDebug = log.isDebugEnabled();
     private static String queueName = MainPlayer.fileName;
 
@@ -44,8 +46,13 @@ public class ChronicleLiveTailer {
                 queueTailer.interesting(Integer.parseInt(secId));
             }
         }
-        for (; iter < 10_000; iter++)
+
+
+        for (; iter < 10_000; iter++) {
             queueTailer.run();
+            if (iter == 0)
+                log.error("Filtering for " + queueTailer.books.keySet().stream().collect(Collectors.toList()));
+        }
     }
 
     IntHashSet securitiesToFilter = new IntHashSet();
@@ -74,20 +81,19 @@ public class ChronicleLiveTailer {
 //            log.error("Empty queue");
     }
 
-    private Int2ObjectHashMap<OrderBook> books = new Int2ObjectHashMap<>();
+    private final Int2ObjectHashMap<OrderBook> books = new Int2ObjectHashMap<>();
 
     Manageable current;
 
     public void run() {
         try {
-            initBooks();
+            reset();
             this.tailer = queue.createTailer();
             this.tailer.toStart();
         } catch (IOException e) {
             e.printStackTrace();
         }
 
-        tailed = 0;
         long start = System.currentTimeMillis();
         do {
             while ((current = readNext(tailer)) != null) {
@@ -98,10 +104,12 @@ public class ChronicleLiveTailer {
 //                    System.out.println(book.getTracker().calcPnL(book.getFairValue()));
             }
         } while (isSync || current != null);
-        TestMap.log(iter + "# Done processing batch from memory " + tailed, start);
-//        for (OrderBook book : books.values()) {
-//            log.info(book.getTracker());
-//        }
+        if (iter % 20 == 0)
+            LogUtil.log(iter + "# Done processing batch from memory", start, assimilated);
+        for (OrderBook book : books.values()) {
+            if (!book.getTracker().getExecuted().isEmpty())
+                LogUtil.log(book.getTracker().toString(), start);
+        }
     }
 
     boolean isSync = false;
@@ -143,6 +151,7 @@ public class ChronicleLiveTailer {
     private OrderBook assimilate(Manageable current) {
         if (!filter(current.getSecurityId()))
             return null;
+        assimilated++;
         OrderBook book = getBook(current.getSecurityId());
         return book.assimilate(current);
 //        if (current.getId() == 6816519491474l)
@@ -164,7 +173,9 @@ public class ChronicleLiveTailer {
         return books.get(securityId);
     }
 
-    private void initBooks() {
+    private void reset() {
+        tailed = 0;
+        assimilated = 0;
         LeanQuote.resetCreated();
         for (OrderBook book : books.values()) {
             books.get(book.initEvent.tradableId).clear();
@@ -205,7 +216,7 @@ public class ChronicleLiveTailer {
         long matchingTime = tailer.readLong();
         long gwRequest = tailer.readLong();
 
-        LeanQuote quote = getQuote(quoteType);
+        LeanQuote quote = getQuote(false);
         quote.setLast(isLast);
         quote.setSecurityId(securityId);
         quote.set(quoteType, sides[sideId], price, amount, orderId);
@@ -217,8 +228,8 @@ public class ChronicleLiveTailer {
 
     LeanQuote reusableQuote = new LeanQuote();
 
-    private LeanQuote getQuote(LeanQuote.QuoteType quoteType) {
-//        if (quoteType.isChange()) return reusableQuote;
+    private LeanQuote getQuote(boolean reuse) {
+        if (reuse) return reusableQuote;
         return LeanQuote.getCleanQuote();
     }
 

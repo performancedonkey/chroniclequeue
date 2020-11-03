@@ -17,7 +17,7 @@ import java.io.File;
 import java.io.IOException;
 
 public class ChronicleTailer {
-    private static Logger log = Logger.getLogger(ChronicleTailer.class);
+    private static final Logger log = Logger.getLogger(ChronicleTailer.class);
 
     static String pathStr = Paths.temp_path + "chronicle/" + MainPlayer.fileName;
 
@@ -69,21 +69,20 @@ public class ChronicleTailer {
 //            log.error("Empty queue");
     }
 
-    private Int2ObjectHashMap<OrderBook> books = new Int2ObjectHashMap<>();
+    private final Int2ObjectHashMap<OrderBook> books = new Int2ObjectHashMap<>();
 
     Manageable current;
     boolean isLive = false;
 
     public void run() {
         try {
-            initBooks();
+            reset();
             this.tailer = queue.createTailer();
             this.tailer.toStart();
         } catch (IOException e) {
             e.printStackTrace();
         }
 
-        tailed = 0;
         long start = System.currentTimeMillis();
         do {
             while ((current = readNext(tailer)) != null) {
@@ -113,6 +112,7 @@ public class ChronicleTailer {
                     + " \t | " + this.current);
     }
 
+
     private OrderBook assimilate(Manageable current) {
         int securityId = current.getSecurityId();
         if (securityId == 569388)
@@ -134,10 +134,11 @@ public class ChronicleTailer {
         return books.get(securityId);
     }
 
-    private void initBooks() {
+    private void reset() {
+        tailed = 0;
         LeanQuote.resetCreated();
         for (OrderBook book : books.values()) {
-//            books.replace(book.initEvent.tradableId, new OrderBook(book.initEvent));
+            // Reset for new iteration
             books.get(book.initEvent.tradableId).clear();
         }
     }
@@ -174,7 +175,6 @@ public class ChronicleTailer {
         long sendingTime = tailer.readLong();
         long timestamp = tailer.readLong();
 
-        // do something with sides.
         LeanQuote quote = LeanQuote.getCleanQuote();
         quote.set(quoteType, side, price, amount, orderId);
         quote.set(timestamp);
