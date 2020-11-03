@@ -1,4 +1,6 @@
-import events.book.LeanQuote;
+package chronicle;
+
+;import events.book.LeanQuote;
 import events.book.Manageable;
 import events.feed.MarketOrder;
 import net.openhft.chronicle.core.values.LongValue;

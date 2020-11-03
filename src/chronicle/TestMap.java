@@ -1,3 +1,5 @@
+package chronicle;
+
 import events.LiveEvent;
 import events.book.LeanQuote;
 import events.book.Manageable;
@@ -7,29 +9,34 @@ import net.openhft.chronicle.core.values.LongValue;
 import net.openhft.chronicle.map.ChronicleMap;
 import net.openhft.chronicle.map.ChronicleMapBuilder;
 import net.openhft.chronicle.values.Values;
+import org.apache.log4j.Logger;
 import recorder.RecordingPlayer;
 import utils.DateUtils;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Date;
 import java.util.Iterator;
 import java.util.Map.Entry;
 
 public class TestMap {
+    private static Logger log = Logger.getLogger(TestMap.class);
 
     private static final long HOW_MANY = 1_000_000l;
 
     private static final int VALUE_LENGTH = 2;
+    static long lowest = Long.MAX_VALUE;
 
     public static void log(String txt, long start) {
         long now = System.currentTimeMillis();
-        System.out.println("time: " + DateUtils.fullTimeMilliFormat.format(now) + " took (ms): " + (now - start) + " \t- " + txt);
+        long timeDiff = now - start;
+        lowest = Math.min(lowest, timeDiff);
+        log.info(String.format("Took (ms) %d / %d - %s", timeDiff, lowest, txt));
+        //        log.info("time: " + DateUtils.fullTimeMilliFormat.format(now) + " took (ms): " + (now - start) + " \t- " + txt);
     }
 
     public static void logNano(String txt, long start) {
         long now = System.nanoTime();
-        System.out.println("time: " + DateUtils.fullTimeMilliFormat.format(System.currentTimeMillis()) + " took (us): " + (int) ((now - start) / 1000) + " \t- " + txt);
+        log.info("time: " + DateUtils.fullTimeMilliFormat.format(System.currentTimeMillis()) + " took (us): " + (int) ((now - start) / 1000) + " \t- " + txt);
     }
 
     static String fileName = "C:/Users/Mati/Documents/Player/liveRecordings/RTAlgorithms_200910_020726.dat";

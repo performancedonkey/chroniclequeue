@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="INFO" monitoringInterval="30" shutdownHook="disable">
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} %-5level [%t] %c{1} - %msg%n"/>
+        </Console>
+
+        <RollingRandomAccessFile name="WarnLog"
+                                 fileName="outputWARN.log"
+                                 immediateFlush="false"
+                                 append="false"
+                                 filePattern="">
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} %-5level [%t] %c{1} - %msg%n"/>
+            <Policies/>
+        </RollingRandomAccessFile>
+		<RollingRandomAccessFile name="ErrorLog"
+                                 fileName="outputERROR.log"
+                                 immediateFlush="false"
+                                 append="false"
+                                 filePattern="">
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} %-5level [%t] %c{1} - %msg%n"/>
+            <Policies/>
+        </RollingRandomAccessFile>
+    </Appenders>
+         
+    <Loggers>
+        <Root level="INFO">
+			<AppenderRef ref="Console" level="INFO"/>
+            <AppenderRef ref="WarnLog" level="WARN"/>
+			<AppenderRef ref="ErrorLog" level="ERROR"/>
+        </Root>
+    </Loggers>
+</Configuration>
