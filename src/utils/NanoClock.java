@@ -35,7 +35,7 @@ public class NanoClock {
         startMicros = cNowMicros > 0 ? cNowMicros : (firstMilli + 1) * 1000;
         nanoOffset = TimeUnit.MICROSECONDS.toNanos(startMicros) - startNano;
 
-        log.info("StartMilli=" + firstMilli + " / StartMicros= " + startMicros + " / nanoOffset= " + nanoOffset);
+        log.error("StartMilli=" + firstMilli + " / StartMicros= " + startMicros + " / nanoOffset= " + nanoOffset);
     }
 
     public static long getNanoTimeNow() {

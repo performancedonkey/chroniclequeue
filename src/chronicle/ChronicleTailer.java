@@ -15,6 +15,7 @@ import utils.Paths;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.concurrent.Executors;
 
 public class ChronicleTailer {
     private static final Logger log = Logger.getLogger(ChronicleTailer.class);
@@ -28,30 +29,14 @@ public class ChronicleTailer {
     public static void main(String[] args) {
         DOMConfigurator.configure("./log4j.xml");
 
-        final ChronicleTailer tailer1 = new ChronicleTailer(pathStr);
-//        final ChronicleTailer tailer2 = new ChronicleTailer(pathStr);
-//        final ChronicleTailer tailer3 = new ChronicleTailer(pathStr);
-//        final ChronicleTailer tailer4 = new ChronicleTailer(pathStr);
-//        Executors.newSingleThreadExecutor().execute(() -> {
-        for (; iter < 10_000; iter++) {
-            tailer1.run();
+        for (int tailers = 0; tailers < 2; tailers++) {
+            final ChronicleTailer tailer = new ChronicleTailer(pathStr);
+            Executors.newSingleThreadExecutor().execute(() -> {
+                for (; iter < 10_000; iter++) {
+                    tailer.run();
+                }
+            });
         }
-//        });
-//        Executors.newSingleThreadExecutor().execute(() -> {
-//            for (; iter < 10_000; iter++) {
-//                tailer2.run();
-//            }
-//        });
-//        Executors.newSingleThreadExecutor().execute(() -> {
-//            for (; iter < 10_000; iter++) {
-//                tailer3.run();
-//            }
-//        });
-//        Executors.newSingleThreadExecutor().execute(() -> {
-//            for (; iter < 10_000; iter++) {
-//                tailer4.run();
-//            }
-//        });
     }
 
     private Chronicle queue;
@@ -118,7 +103,7 @@ public class ChronicleTailer {
         if (securityId == 569388)
             return null;
         OrderBook book = getBook(securityId);
-        book.assimilate(current);
+        book.initEvent.assimilate(current);
         return book;
     }
 

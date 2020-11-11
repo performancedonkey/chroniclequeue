@@ -12,12 +12,18 @@ import org.agrona.collections.Int2ObjectHashMap;
 import org.agrona.collections.IntHashSet;
 import org.apache.log4j.Logger;
 import org.apache.log4j.xml.DOMConfigurator;
+import org.jetbrains.annotations.NotNull;
+import simulator.LocalPnlLogger;
+import trackers.OrderTracker;
+import trackers.PrivateOrderBook;
+import trackers.Tracker;
 import utils.LogUtil;
 import utils.NanoClock;
 import utils.Paths;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 public class ChronicleLiveTailer {
@@ -30,32 +36,38 @@ public class ChronicleLiveTailer {
 
     public static void main(String[] args) {
         DOMConfigurator.configure("./log4j.xml");
+
         if (args.length > 0) {
-            long offset = Long.parseLong(args[0]);
-            NanoClock.setOffset(offset);
-        }
-        if (args.length > 1) {
-            queueName = args[1];
+            queueName = args[0];
         }
         String pathStr = Paths.temp_path + "chronicle/" + queueName;
 
-        final ChronicleLiveTailer queueTailer = new ChronicleLiveTailer(pathStr);
+        for (int tailers = 0; tailers < 1; tailers++) {
+            Executors.newSingleThreadExecutor().execute(() -> {
 
-        if (args.length > 2) {
-            for (String secId : args[2].split(",")) {
-                queueTailer.interesting(Integer.parseInt(secId));
-            }
+                final ChronicleLiveTailer queueTailer = new ChronicleLiveTailer(pathStr);
+
+                if (args.length > 1) {
+                    for (String secId : args[1].split(",")) {
+                        queueTailer.interesting(Integer.parseInt(secId));
+                    }
+                }
+
+                for (; iter < 10_000; iter++) {
+                    queueTailer.run();
+                    if (iter == 0)
+                        log.error("Filtering for " + queueTailer.books.keySet().stream().collect(Collectors.toList()));
+                }
+            });
         }
 
-
-        for (; iter < 10_000; iter++) {
-            queueTailer.run();
-            if (iter == 0)
-                log.error("Filtering for " + queueTailer.books.keySet().stream().collect(Collectors.toList()));
+        if (args.length > 2) {
+            long offset = Long.parseLong(args[2]);
+            NanoClock.setOffset(offset);
         }
     }
 
-    IntHashSet securitiesToFilter = new IntHashSet();
+    private IntHashSet securitiesToFilter = new IntHashSet();
 
     public void interesting(int securityId) {
         securitiesToFilter.add(securityId);
@@ -77,11 +89,9 @@ public class ChronicleLiveTailer {
         } catch (Exception e) {
             log.error("MM file not loaded: " + queueName, e);
         }
-//        if (this.queue.size()==0)
-//            log.error("Empty queue");
     }
 
-    private final Int2ObjectHashMap<OrderBook> books = new Int2ObjectHashMap<>();
+    private final Int2ObjectHashMap<PrivateOrderBook> books = new Int2ObjectHashMap<>();
 
     Manageable current;
 
@@ -97,18 +107,21 @@ public class ChronicleLiveTailer {
         long start = System.currentTimeMillis();
         do {
             while ((current = readNext(tailer)) != null) {
+//                if (current.getTimestamps().getMatchingTime() >= 1599724474768514600l-1_000_000)
+//                    System.out.println(current.getTimestamps().getMatchingTime()+"\t"+ current);
                 OrderBook book = process(current);
-//                if (current.getId()==6816519491074l)
-//                    System.out.println(current);
-//                if (current.getType().isPrivate() && book != null && book.isValid())
-//                    System.out.println(book.getTracker().calcPnL(book.getFairValue()));
             }
         } while (isSync || current != null);
-        if (iter % 20 == 0)
-            LogUtil.log(iter + "# Done processing batch from memory", start, assimilated);
-        for (OrderBook book : books.values()) {
-            if (!book.getTracker().getExecuted().isEmpty())
-                LogUtil.log(book.getTracker().toString(), start);
+        done(start);
+    }
+
+    private void done(long start) {
+        if (iter % 20 == 0) {
+            LogUtil.log(iter + "# Done processing from memory", start, assimilated);
+            for (PrivateOrderBook book : books.values()) {
+//                if (!book.tracker.getExecuted().isEmpty())
+//                    LogUtil.log(book.initEvent.tradableId + ": " + book.tracker.toString(), start);
+            }
         }
     }
 
@@ -125,7 +138,9 @@ public class ChronicleLiveTailer {
         if (tailed % 20 == 0)
             log.info(getAgeUs(current) + ": \t#" +
                     tailed + " #" + current.getTimestamps().getSequence() + " " + current);
-//            consume(current, book);
+
+//                if (current.getType().isPrivate() && book != null && book.isValid())
+//                    System.out.println(book.getTracker().calcPnL(book.getFairValue()));
 
         // Leave as part of consuming logic alone!
 //                book.flush();
@@ -152,33 +167,56 @@ public class ChronicleLiveTailer {
         if (!filter(current.getSecurityId()))
             return null;
         assimilated++;
-        OrderBook book = getBook(current.getSecurityId());
-        return book.assimilate(current);
-//        if (current.getId() == 6816519491474l)
-//            System.out.println(current.getLayer() + " / " + book.getSideOrders(current.getSide()).getDirtyTob() + " / " + current);
-
-//        if (current.getType().isExecution())
-//        return null;
+        PrivateOrderBook privateBook = getBook(current.getSecurityId());
+        privateBook.assimilate(current);
+//        System.out.println(current.getLayer() + " / " + privateBook.getPublicBook().getSideOrders(current.getSide()).getDirtyTob() + " / " + current);
+        return privateBook.getPublicBook();
     }
 
-    public OrderBook getBook(int securityId) {
+    public PrivateOrderBook getBook(int securityId) {
         if (!books.containsKey(securityId)) {
             InitializeTradableEvent ite = new InitializeTradableEvent();
-            ite.tradableId = securityId;
+            ite.setTradableId(securityId);
+            // TODO set dynamically per instrument
             ite.step = 0.25f;
             ite.marketDepth = 10;
             ite.impliedLayers = 0;
-            books.put(securityId, new OrderBook(ite));
+            books.put(securityId, new PrivateOrderBook(ite));
         }
         return books.get(securityId);
     }
 
     private void reset() {
+        isSync = false;
         tailed = 0;
         assimilated = 0;
         LeanQuote.resetCreated();
-        for (OrderBook book : books.values()) {
-            books.get(book.initEvent.tradableId).clear();
+        for (int securityId : books.keySet()) {
+            // Swap the private book with all the private info for a fresh one.
+            PrivateOrderBook privateBook = books.replace(securityId, new PrivateOrderBook(books.get(securityId).initEvent));
+            // Log deals before we clear the data
+            Tracker tracker = privateBook.getTracker();
+            int nonPerf = 0;
+            int ix = 0;
+            int aggressive = 0;
+            for (OrderTracker orderTracker : privateBook.getTrackers()) {
+                ix++;
+                if (orderTracker.getPublicOrder() == null)
+                    aggressive++;
+                // Only left are trades where private beat public and we were not first in queue
+                if (orderTracker.getPriority() != 0) {
+                    System.out.println(ix + " " + nonPerf++ + "\t" + orderTracker.getPriority() + " / " +
+                            orderTracker.getOrdersAhead() + (orderTracker.getPublicOrder() == null ? " Agg" : " Pas ") +
+                            " P: " + orderTracker.getPublicOrder() + ":" + orderTracker + "\t" + orderTracker.ordersAheadStr)
+                    ;
+                }
+            }
+            if (tracker.getVolume() != 0) {
+//privateBook.serialize();
+                System.out.println(privateBook.initEvent.tradableId + ": " + tracker);
+            }
+            tracker.detach();
+            privateBook.clear();
         }
     }
 
@@ -191,7 +229,7 @@ public class ChronicleLiveTailer {
         return next;
     }
 
-    public LeanQuote getNext(ExcerptTailer tailer) {
+    public LeanQuote getNext(@NotNull ExcerptTailer tailer) {
         if (!tailer.nextIndex())
             return null;
 
@@ -230,7 +268,7 @@ public class ChronicleLiveTailer {
 
     private LeanQuote getQuote(boolean reuse) {
         if (reuse) return reusableQuote;
-        return LeanQuote.getCleanQuote();
+        return new LeanQuote(); //LeanQuote.getCleanQuote();
     }
 
     public int getTailed() {

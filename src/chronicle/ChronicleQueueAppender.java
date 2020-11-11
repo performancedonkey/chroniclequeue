@@ -78,7 +78,7 @@ public class ChronicleQueueAppender {
         appender.writeInt(quote.getAmount());
         appender.writeLong(quote.getId());
         // Timestamps
-        for (Long aLong : Arrays.asList(NanoClock.getNanoTimeNow(), // quote.getTimestamp()
+        for (Long aLong : Arrays.asList(quote.getTimestamp(),
                 exchangeTimestamp.getSendingTime(),
                 exchangeTimestamp.getMatchingTime(),
                 exchangeTimestamp.getGwRequestTime()

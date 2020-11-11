@@ -11,7 +11,7 @@ public class LogUtil {
         long timeDiff = now - start;
         lowest = Math.min(lowest, timeDiff);
         int kmps = (int) (processed / timeDiff);
-        log.error(String.format("Took (ms) %d / %d - %s of %d | kmps:  %d", timeDiff, lowest, txt, processed, kmps));
+        log.error(String.format("Took (ms) %d / %d - %s batch of %d | kmps:  %d", timeDiff, lowest, txt, processed, kmps));
     }
 
     public static void log(String txt, long start) {

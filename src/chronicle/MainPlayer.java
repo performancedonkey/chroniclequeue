@@ -58,9 +58,10 @@ public class MainPlayer {
         OrderEvent current = null, prev;
         while (player.isActive()) {
             try {
-                prev = current;
                 LiveEvent next = player.next();
+//                System.out.println(next);
                 if (!(next instanceof OrderEvent)) continue;
+                prev = current;
                 current = (OrderEvent) next;
                 LeanQuote quote = LeanQuote.getQuote(current);
 
