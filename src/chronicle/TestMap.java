@@ -2,7 +2,7 @@ package chronicle;
 
 import events.LiveEvent;
 import events.book.LeanQuote;
-import events.book.Manageable;
+import events.book.BookAtom;
 import events.feed.InitializeTradableEvent;
 import events.feed.MarketOrder;
 import net.openhft.chronicle.core.values.LongValue;
@@ -49,10 +49,10 @@ public class TestMap {
         if (path.exists()) path.delete();
 
         long start = System.currentTimeMillis();
-        ChronicleMap<LongValue, Manageable> map = null;
+        ChronicleMap<LongValue, BookAtom> map = null;
         try {
             map = ChronicleMapBuilder
-                    .of(LongValue.class, Manageable.class)
+                    .of(LongValue.class, BookAtom.class)
                     .name("map")
                     .entries(HOW_MANY)
                     .averageValue(new LeanQuote())
@@ -87,9 +87,9 @@ public class TestMap {
         try {
             start = System.currentTimeMillis();
 
-            Iterator<Entry<LongValue, Manageable>> iterator = map.entrySet().iterator();
+            Iterator<Entry<LongValue, BookAtom>> iterator = map.entrySet().iterator();
             while (iterator.hasNext()) {
-                Entry<LongValue, Manageable> order = iterator.next();
+                Entry<LongValue, BookAtom> order = iterator.next();
             }
 
             log("Done iterating. Deleting and inserting while iterating over map of: " + map.longSize(), start);
@@ -97,7 +97,7 @@ public class TestMap {
             start = System.currentTimeMillis();
             iterator = map.entrySet().iterator();
             while (iterator.hasNext()) {
-                Entry<LongValue, Manageable> order = iterator.next();
+                Entry<LongValue, BookAtom> order = iterator.next();
                 map.remove(order.getKey());
                 map.put(order.getKey(), order.getValue());
             }

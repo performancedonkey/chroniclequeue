@@ -2,7 +2,7 @@ package chronicle;
 
 import algoAPI.Side;
 import events.book.LeanQuote;
-import events.book.Manageable;
+import events.book.BookAtom;
 import events.book.OrderBook;
 import events.feed.InitializeTradableEvent;
 import net.openhft.chronicle.Chronicle;
@@ -56,7 +56,7 @@ public class ChronicleTailer {
 
     private final Int2ObjectHashMap<OrderBook> books = new Int2ObjectHashMap<>();
 
-    Manageable current;
+    BookAtom current;
     boolean isLive = false;
 
     public void run() {
@@ -79,7 +79,7 @@ public class ChronicleTailer {
             TestMap.log(iter + "# Done processing batch from memory " + tailed, start);
     }
 
-    private void consume(Manageable change, OrderBook book) {
+    private void consume(BookAtom change, OrderBook book) {
         // Leave as part of consuming logic alone!
 //                book.flush();
 //                    System.out.println(DateUtils.formatDateTimeMicro(event.getTimestamp()));
@@ -98,7 +98,7 @@ public class ChronicleTailer {
     }
 
 
-    private OrderBook assimilate(Manageable current) {
+    private OrderBook assimilate(BookAtom current) {
         int securityId = current.getSecurityId();
         if (securityId == 569388)
             return null;
@@ -132,22 +132,30 @@ public class ChronicleTailer {
     final static Side[] sides = Side.values();
 
     public LeanQuote readNext(ExcerptTailer tailer) {
+        if (!tailer.nextIndex()) return null;
         LeanQuote next = getNext(tailer);
         if (next != null) tailed++;
         return next;
     }
 
     public static LeanQuote getNext(ExcerptTailer tailer) {
-        if (!tailer.nextIndex())
-            return null;
+        LeanQuote quote = LeanQuote.getCleanQuote();
+        tail(quote, 0, tailer);
+        return quote;
+    }
 
+    public int getTailed() {
+        return tailed;
+    }
+
+    public static void tail(LeanQuote quote, long seq, ExcerptTailer tailer) {
         boolean isLast = true;
+        byte isOms = 1;
         int securityId = tailer.readInt();
         int sequence = tailer.readInt();
         byte typeId = tailer.readByte();
         LeanQuote.QuoteType quoteType = quoteTypes[typeId];
         byte sideId = tailer.readByte();
-        Side side = sides[sideId];
         // Original code was float 64 double
         float price = tailer.readFloat();
         // TODO - once and for all. Always can downcast to float
@@ -155,21 +163,20 @@ public class ChronicleTailer {
 //        double price = tailer.readDouble();
         int amount = tailer.readInt();
         long orderId = tailer.readLong();
-        long gwRequest = tailer.readLong();
-        long matchingTime = tailer.readLong();
-        long sendingTime = tailer.readLong();
         long timestamp = tailer.readLong();
+        // 1 MTU = 40 Bytes
+        // Extra Data
+        long sendingTime = tailer.readLong();
+        long matchingTime = tailer.readLong();
+        long gwRequest = tailer.readLong();
 
-        LeanQuote quote = LeanQuote.getCleanQuote();
-        quote.set(quoteType, side, price, amount, orderId);
-        quote.set(timestamp);
-        quote.getTimestamps().set(sequence, gwRequest, matchingTime, sendingTime);
         quote.setLast(isLast);
         quote.setSecurityId(securityId);
-        return quote;
+        quote.set(quoteType, sides[sideId], price, amount, orderId);
+        quote.set(timestamp);
+        quote.getTimestamps().set(sequence, gwRequest, matchingTime, sendingTime);
+        quote.setLayer(OrderBook.LAYER_NOT_SET);
     }
 
-    public int getTailed() {
-        return tailed;
-    }
+
 }

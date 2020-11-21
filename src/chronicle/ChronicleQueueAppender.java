@@ -1,6 +1,6 @@
 package chronicle;
 
-import events.book.Manageable;
+import events.book.BookAtom;
 import events.utils.ExchangeTimestampP;
 import net.openhft.chronicle.Chronicle;
 import net.openhft.chronicle.ChronicleQueueBuilder;
@@ -58,7 +58,7 @@ public class ChronicleQueueAppender {
         return securitiesToFilter.isEmpty() || securitiesToFilter.contains(securityId);
     }
 
-    public boolean append(Manageable quote) {
+    public boolean append(BookAtom quote) {
         // SW filtering
         if (quote == null || quote.getType() == null ||
                 !filter(quote.getSecurityId()))

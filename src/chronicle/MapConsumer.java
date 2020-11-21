@@ -1,7 +1,7 @@
 package chronicle;
 
 ;import events.book.LeanQuote;
-import events.book.Manageable;
+import events.book.BookAtom;
 import events.feed.MarketOrder;
 import net.openhft.chronicle.core.values.LongValue;
 import net.openhft.chronicle.map.ChronicleMap;
@@ -31,10 +31,10 @@ public class MapConsumer {
         path = new File("DB/chronicle/testFile");
         if (path.exists()) path.delete();
 
-        ChronicleMap<LongValue, Manageable> map = null;
+        ChronicleMap<LongValue, BookAtom> map = null;
         try {
             map = ChronicleMapBuilder
-                    .of(LongValue.class, Manageable.class)
+                    .of(LongValue.class, BookAtom.class)
                     .name("map")
                     .entries(HOW_MANY)
                     .averageValue(new LeanQuote())
@@ -58,11 +58,11 @@ public class MapConsumer {
         }
     }
 
-    private static void iterateOverMap(ChronicleMap<LongValue, Manageable> map) {
+    private static void iterateOverMap(ChronicleMap<LongValue, BookAtom> map) {
 
-        Iterator<Entry<LongValue, Manageable>> iterator = map.entrySet().iterator();
+        Iterator<Entry<LongValue, BookAtom>> iterator = map.entrySet().iterator();
         while (iterator.hasNext()) {
-            Entry<LongValue, Manageable> order = iterator.next();
+            Entry<LongValue, BookAtom> order = iterator.next();
 //                System.out.println(order.getValue());
         }
     }

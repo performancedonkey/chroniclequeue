@@ -1,8 +1,8 @@
 package chronicle;
 
 import algoAPI.Side;
+import events.book.BookAtom;
 import events.book.LeanQuote;
-import events.book.Manageable;
 import events.book.OrderBook;
 import events.feed.InitializeTradableEvent;
 import net.openhft.chronicle.Chronicle;
@@ -13,7 +13,6 @@ import org.agrona.collections.IntHashSet;
 import org.apache.log4j.Logger;
 import org.apache.log4j.xml.DOMConfigurator;
 import org.jetbrains.annotations.NotNull;
-import simulator.LocalPnlLogger;
 import trackers.OrderTracker;
 import trackers.PrivateOrderBook;
 import trackers.Tracker;
@@ -24,7 +23,6 @@ import utils.Paths;
 import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.Executors;
-import java.util.stream.Collectors;
 
 public class ChronicleLiveTailer {
     private static final Logger log = Logger.getLogger(ChronicleLiveTailer.class);
@@ -56,7 +54,7 @@ public class ChronicleLiveTailer {
                 for (; iter < 10_000; iter++) {
                     queueTailer.run();
                     if (iter == 0)
-                        log.error("Filtering for " + queueTailer.books.keySet().stream().collect(Collectors.toList()));
+                        log.error("Filtering for " + queueTailer.securitiesToFilter.toString());
                 }
             });
         }
@@ -93,7 +91,7 @@ public class ChronicleLiveTailer {
 
     private final Int2ObjectHashMap<PrivateOrderBook> books = new Int2ObjectHashMap<>();
 
-    Manageable current;
+    BookAtom current;
 
     public void run() {
         try {
@@ -104,11 +102,15 @@ public class ChronicleLiveTailer {
             e.printStackTrace();
         }
 
-        long start = System.currentTimeMillis();
+        long start = System.nanoTime();
         do {
             while ((current = readNext(tailer)) != null) {
 //                if (current.getTimestamps().getMatchingTime() >= 1599724474768514600l-1_000_000)
 //                    System.out.println(current.getTimestamps().getMatchingTime()+"\t"+ current);
+//                if (current.getId() == 6816519480885l) {
+//                    System.out.println(tailed + " " + current.getTimestamps().getSendingTime() + "\t" + current);
+//                }
+//                System.out.println(current.getTimestamps().getSequence());
                 OrderBook book = process(current);
             }
         } while (isSync || current != null);
@@ -119,22 +121,22 @@ public class ChronicleLiveTailer {
         if (iter % 20 == 0) {
             LogUtil.log(iter + "# Done processing from memory", start, assimilated);
             for (PrivateOrderBook book : books.values()) {
-//                if (!book.tracker.getExecuted().isEmpty())
-//                    LogUtil.log(book.initEvent.tradableId + ": " + book.tracker.toString(), start);
+                if (!book.tracker.getExecuted().isEmpty())
+                    LogUtil.log(book.initEvent.tradableId + ": " + book.tracker.toString(), start);
             }
         }
     }
 
     boolean isSync = false;
 
-    private OrderBook process(Manageable current) {
+    private OrderBook process(BookAtom current) {
         OrderBook book = assimilate(current);
         isSync |= (getAgeUs(current) < 1_000_000);
         if (isSync) consume(current, book);
         return book;
     }
 
-    private void consume(Manageable change, OrderBook book) {
+    private void consume(BookAtom change, OrderBook book) {
         if (tailed % 20 == 0)
             log.info(getAgeUs(current) + ": \t#" +
                     tailed + " #" + current.getTimestamps().getSequence() + " " + current);
@@ -159,11 +161,11 @@ public class ChronicleLiveTailer {
                     + " \t | " + this.current);
     }
 
-    public static long getAgeUs(Manageable order) {
+    public static long getAgeUs(BookAtom order) {
         return (NanoClock.getNanoTimeNow() - order.getTimestamp()) / 1_000;
     }
 
-    private OrderBook assimilate(Manageable current) {
+    private OrderBook assimilate(BookAtom current) {
         if (!filter(current.getSecurityId()))
             return null;
         assimilated++;
@@ -205,15 +207,15 @@ public class ChronicleLiveTailer {
                     aggressive++;
                 // Only left are trades where private beat public and we were not first in queue
                 if (orderTracker.getPriority() != 0) {
-                    System.out.println(ix + " " + nonPerf++ + "\t" + orderTracker.getPriority() + " / " +
-                            orderTracker.getOrdersAhead() + (orderTracker.getPublicOrder() == null ? " Agg" : " Pas ") +
-                            " P: " + orderTracker.getPublicOrder() + ":" + orderTracker + "\t" + orderTracker.ordersAheadStr)
+//                    System.out.println(ix + " " + nonPerf++ + "\t" + orderTracker.getPriority() + " / " +
+//                            orderTracker.getOrdersAhead() + (orderTracker.getPublicOrder() == null ? " Agg" : " Pas ") +
+//                            " P: " + orderTracker.getPublicOrder() + ":" + orderTracker + "\t" + orderTracker.ordersAheadStr)
                     ;
                 }
             }
             if (tracker.getVolume() != 0) {
 //privateBook.serialize();
-                System.out.println(privateBook.initEvent.tradableId + ": " + tracker);
+//                System.out.println(privateBook.initEvent.tradableId + ": " + tracker);
             }
             tracker.detach();
             privateBook.clear();

@@ -16,6 +16,7 @@ public class NanoClock {
     private static final Logger log = Logger.getLogger(NanoClock.class);
 
     private static long startNano, startMicros, nanoOffset;
+    public final static long START_TIME = SetAffinityManager.getInstance().getCCurrentMicrosTime();
 
     // PTP applicative synchronization
     static {
