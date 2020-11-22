@@ -139,17 +139,17 @@ public class ChronicleTailer {
     }
 
     public static LeanQuote getNext(ExcerptTailer tailer) {
-        LeanQuote quote = LeanQuote.getCleanQuote();
-        tail(quote, 0, tailer);
-        return quote;
+        LeanQuote cleanQuote = LeanQuote.getCleanQuote();
+        tail(cleanQuote, tailer);
+        return cleanQuote;
     }
 
     public int getTailed() {
         return tailed;
     }
 
-    public static void tail(LeanQuote quote, long seq, ExcerptTailer tailer) {
-        boolean isLast = true;
+    public static void tail(LeanQuote quote, ExcerptTailer tailer) {
+        boolean isLast = false;
         byte isOms = 1;
         int securityId = tailer.readInt();
         int sequence = tailer.readInt();

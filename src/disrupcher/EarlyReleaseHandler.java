@@ -13,8 +13,8 @@ public abstract class EarlyReleaseHandler<T> implements SequenceReportingEventHa
     }
 
     @Override
-    public void onEvent(T event, long sequence, boolean endOfBatch) throws Exception {
-        processEvent(event);
+    public void onEvent(T event, long sequence, boolean endOfBatch) {
+        onEvent(event);
 
         boolean logicalChunkOfWorkComplete = isLogicalChunkOfWorkComplete();
         if (logicalChunkOfWorkComplete) {
@@ -23,6 +23,9 @@ public abstract class EarlyReleaseHandler<T> implements SequenceReportingEventHa
 
         batchRemaining = logicalChunkOfWorkComplete || endOfBatch ? 20 : batchRemaining;
     }
+
+    protected abstract void onEvent(T event);
+
 
     private boolean isLogicalChunkOfWorkComplete() {
         // Ret true or false based on whatever cirteria is required for the smaller
@@ -33,5 +36,4 @@ public abstract class EarlyReleaseHandler<T> implements SequenceReportingEventHa
         return --batchRemaining == -1;
     }
 
-    protected abstract void processEvent(T event);
 }

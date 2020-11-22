@@ -14,14 +14,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 
-public abstract class AbstractAlgoApi implements AlgoAPI {
+public abstract class AlgoAbstract implements AlgoAPI {
     private static final Logger log = Logger.getLogger(AlgoAPIImpl.class);
     InitializeTradableEvent target;
     protected final Int2ObjectHashMap<InitializeTradableEvent> initTradables = new Int2ObjectHashMap<>();
     public final static boolean busy = false;
     public final static boolean isLive = false; //GlobalProperties.getInstance().getK300FeedSource().isLive();
     // If not sim, we expect to find ourselves in the book
-    public final static boolean isProd = false;
+    public final static boolean isProd = true;
 
     @Override
     public void initTradable(LiveEvent event) {
@@ -55,13 +55,23 @@ public abstract class AbstractAlgoApi implements AlgoAPI {
     }
 
     @Override
-    public void activate(String s, AlgoAction algoAction, AlgoOperation algoOperation) {
+    public void activate(String s, AlgoAction action, AlgoOperation algoOperation) {
+//        if (this.isActive() && this.getTrackers().get(target).isFreeToOperate()) {
+//            this.cancelBeforeOperate(batchNumber, target, action.getOpposite(), price);
+//            this.getTrackers().operate(target);
+//            operateSize = Math.max(Math.min(operateSize, this.maxOrderSize), this.minOrderSize);
+//        this.callbackListener.operate(ba, target, operation, true,
+//                operateSize, (double) price, action, execution);
+//            return action.multiplier() * operateSize;
+//        } else {
+//            return 0;
+//        }
 
     }
 
     @Override
-    public void disable(String s, AlgoAction algoAction, AlgoOperation algoOperation) {
-
+    public void disable(String userRef, AlgoAction algoAction, AlgoOperation algoOperation) {
+        callbackListener.cancelOperate(-1L, userRef);
     }
 
     protected Map<String, String> settings = new HashMap<>();

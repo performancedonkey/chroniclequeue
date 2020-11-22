@@ -6,12 +6,12 @@ import events.book.LeanQuote;
 import events.feed.InitializeTradableEvent;
 import org.agrona.collections.Int2ObjectHashMap;
 import org.apache.log4j.Logger;
-import simulation.AbstractAlgoApi;
+import simulation.AlgoAbstract;
 import trackers.OrderTracker;
 import trackers.PrivateOrderBook;
 import trackers.Tracker;
 
-public class BookAssembler extends AbstractAlgoApi {
+public class BookAssembler extends AlgoAbstract {
     private final Logger log = Logger.getLogger(BookAssembler.class);
 
     int count = 0;

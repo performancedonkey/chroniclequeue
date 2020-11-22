@@ -5,14 +5,13 @@ import algoAPI.AlgoAction;
 import algoAPI.AlgoOperation;
 import algoAPI.AlgoResultCallback;
 import events.LiveEvent;
-import events.book.BookAtom;
 import org.apache.log4j.Logger;
 
-public class DelegatorAlgoApi extends AbstractAlgoApi {
-    private final static Logger log = Logger.getLogger(AlgoBatcher.class);
+public abstract class AlgoDelegator<T> extends AlgoAbstract implements Batcher<T> {
+    private final static Logger log = Logger.getLogger(AlgoDelegator.class);
     protected final AlgoAPI nested;
 
-    public DelegatorAlgoApi(AlgoAPI nested, Logger log) {
+    public AlgoDelegator(AlgoAPI nested, Logger log) {
         this.nested = nested;
 //        this.log = log;
     }
@@ -22,18 +21,27 @@ public class DelegatorAlgoApi extends AbstractAlgoApi {
         nested.initTradable(initializeTradableEvent);
     }
 
+    public int longestBatch;
+    public long longestBatchId;
+
     @Override
     public void pushBatch(long batchNumber, LiveEvent[] events, int batchSize) {
-//        System.out.println("sendingbatchof " + batchSize + " starting @ " + ((BookAtom)events[0]).getTimestamps().getSequence());
         long start = System.nanoTime();
         nested.pushBatch(batchNumber, events, batchSize);
         totalPushed += batchSize;
+        batches++;
+        if (batchSize > longestBatch) {
+            longestBatch = batchSize;
+            longestBatchId = batchNumber;
+//                if (batchSize > 160)
+//                    System.out.println("new longest #" + batchId + ": " + batchSize);
+        }
 
-        long procTime = System.nanoTime() - start;
+//        long procTime = System.nanoTime() - start;
 //        log.info("Pushed #" + batchNumber + ":\t" + batchSize + "\t -> " + totalPushed + "\t us " + procTime / 1_000);
-//        if (lastProcTime > 1_000_000) { // 1 ms
+//        if (procTime > 1_000_000) { // 1 ms
 //            if (isLive)
-//                log.warn(batchNumber + " High process time: " + (lastProcTime / 1_000_000) + " ms for " + batchNumber + " events");
+//                log.warn(batchNumber + " High process time: " + (procTime / 1_000_000) + " ms for " + batchNumber + " events");
 //        }
     }
 
@@ -41,7 +49,7 @@ public class DelegatorAlgoApi extends AbstractAlgoApi {
         return totalPushed;
     }
 
-
+    protected int batches = 0;
     protected long totalPushed = 0;
 
     @Override
@@ -73,7 +81,18 @@ public class DelegatorAlgoApi extends AbstractAlgoApi {
         return nested;
     }
 
-    public boolean isBusy() {
-        return false;
+    public void reset() {
+        totalPushed = 0;
+        longestBatch = 0;
+        batches = 0;
+    }
+
+    public int getLongestBatch() {
+        return longestBatch;
+    }
+
+    public int getBatches() {
+
+        return batches;
     }
 }

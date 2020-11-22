@@ -1,9 +1,9 @@
 package utils;
 
-import chronicle.ChronicleLiveTailer;
+import org.apache.log4j.Logger;
 
 public class LogUtil {
-    private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(ChronicleLiveTailer.class);
+    private static final Logger log = Logger.getLogger(LogUtil.class);
     static long lowest = Long.MAX_VALUE;
 
     public static void log(String txt, long start, long processed) {

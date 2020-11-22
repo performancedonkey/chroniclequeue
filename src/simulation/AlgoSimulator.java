@@ -8,18 +8,18 @@ import events.book.BookAtom;
 import org.apache.log4j.Logger;
 import simulator.ExchangeSimulator;
 
-public class AlgoSimulator extends DisruptedAlgoApi<BookAtom> {
+public class AlgoSimulator extends AlgoDisruptor<BookAtom> {
 
     public AlgoSimulator(AlgoAPI nested, Logger log, RingBuffer<EventHolder<BookAtom>> ringBuffer) {
         super(nested, log, ringBuffer);
     }
 
     @Override
-    public void pushNext(BookAtom next) {
+    public void pushNext(BookAtom next, boolean isLast) {
         if (next.getType().isPrivate()) {
 
         }
-        super.pushNext(next);
+        super.pushNext(next, isLast);
     }
 
 //    @Override
