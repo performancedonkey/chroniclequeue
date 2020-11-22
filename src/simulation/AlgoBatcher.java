@@ -1,10 +1,9 @@
 package simulation;
 
 import algoAPI.AlgoAPI;
-import com.lmax.disruptor.EventTranslatorOneArg;
-import com.lmax.disruptor.RingBuffer;
 import disrupcher.BatchHandler;
 import disrupcher.EventHolder;
+import events.book.BookAtom;
 import org.apache.log4j.Logger;
 import utils.NanoClock;
 
@@ -12,16 +11,16 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class AlgoBatcher<T> extends AlgoDelegator<T> {
     private static final Logger log = Logger.getLogger(AlgoBatcher.class);
-    BatchHandler batcher;
+    BatchHandler<T> batcher;
 
     public AlgoBatcher(AlgoAPI nested, Logger log) {
         super(nested, log);
-        batcher = new BatchHandler(this);
+        batcher = new BatchHandler<>(this);
     }
 
     private final EventHolder<T> dummy = new EventHolder<>();
 
-    AtomicLong sequence = new AtomicLong(0);
+    private AtomicLong sequence = new AtomicLong(0);
 
     @Override
     public void pushNext(T next, boolean isLast) {
@@ -35,6 +34,13 @@ public class AlgoBatcher<T> extends AlgoDelegator<T> {
         eventHolder.set(newEvent, sequence);
         this.lastPublish = NanoClock.getNanoTimeNow();
         return eventHolder;
+    }
+
+    @Override
+    public void reset() {
+        super.reset();
+        lastPublish = 0;
+        sequence.set(0l);
     }
 
 }

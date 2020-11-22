@@ -1,6 +1,5 @@
 package consumers;
 
-import events.LiveEvent;
 import events.book.BookAtom;
 import events.book.LeanQuote;
 import events.feed.InitializeTradableEvent;
@@ -14,19 +13,8 @@ import trackers.Tracker;
 public class BookAssembler extends AlgoAbstract {
     private final Logger log = Logger.getLogger(BookAssembler.class);
 
-    int count = 0;
-
     @Override
-    public synchronized void pushBatch(long batchNumber, LiveEvent[] liveEvents, int batchSize) {
-        for (int i = 0; i < batchSize; i++) {
-            pushEvent(batchNumber, (BookAtom) liveEvents[i]);
-        }
-    }
-
-//    int lastPushed = 0;
-
-    private synchronized void pushEvent(long batchNumber, BookAtom liveEvent) {
-        count++;
+    protected void process(BookAtom liveEvent, boolean isLast) {
         LeanQuote event = (LeanQuote) liveEvent;
         int securityId = event.getSecurityId();
         PrivateOrderBook book = getBook(securityId);

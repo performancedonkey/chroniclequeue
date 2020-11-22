@@ -6,6 +6,7 @@ import algoAPI.AlgoOperation;
 import algoAPI.AlgoResultCallback;
 import algorithms.AlgoAPIImpl;
 import events.LiveEvent;
+import events.book.BookAtom;
 import events.feed.InitializeTradableEvent;
 import org.agrona.collections.Int2ObjectHashMap;
 import org.apache.log4j.Logger;
@@ -45,6 +46,22 @@ public abstract class AlgoAbstract implements AlgoAPI {
         if (target == null) {
             setTarget(initTradables.get(14028));
         }
+    }
+
+    protected int count = 0;
+
+    @Override
+    public synchronized void pushBatch(long batchNumber, LiveEvent[] liveEvents, int batchSize) {
+        for (int i = 0; i < batchSize; i++) {
+            count++;
+            process((BookAtom) liveEvents[i], i + 1 == batchSize);
+        }
+    }
+
+//    int lastPushed = 0;
+
+    protected void process(BookAtom liveEvent, boolean isLast) {
+
     }
 
     protected AlgoResultCallback callbackListener;
