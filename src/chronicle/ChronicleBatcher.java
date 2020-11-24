@@ -1,6 +1,7 @@
 package chronicle;
 
 import algoAPI.AlgoAPI;
+import consumers.BookAssembler;
 import events.book.BookAtom;
 import events.book.LeanQuote;
 import net.openhft.chronicle.Chronicle;
@@ -9,9 +10,8 @@ import net.openhft.chronicle.ExcerptTailer;
 import org.agrona.collections.IntHashSet;
 import org.apache.log4j.Logger;
 import org.apache.log4j.xml.DOMConfigurator;
-import simulation.AlgoBatcher;
-import simulation.BookAssembler;
-import simulation.AlgoDelegator;
+import algoApi.AlgoBatcher;
+import algoApi.AlgoDelegator;
 import trackers.PrivateOrderBook;
 import utils.LogUtil;
 import utils.NanoClock;
@@ -214,7 +214,7 @@ public class ChronicleBatcher {
     private void done(long start) {
         if (iter % 10 == 0) {
             LogUtil.log(iter + "# Done processing from memory " + batcher.getLongestBatch() +
-                    " / " + batcher.getBatches() + " / " + batcher.getPushed(), start, tailed);
+                    " / " + batcher.getBatches() + " / " + batcher.getPushed(), start, batcher.getPushed());
             PrivateOrderBook book = ((BookAssembler) batcher.getNested()).getBook(targetId);
             if (!book.tracker.getExecuted().isEmpty())
                 LogUtil.log(book.initEvent.tradableId + ": " + book.tracker.toString() +

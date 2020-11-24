@@ -1,4 +1,4 @@
-package simulation;
+package algoApi;
 
 import algoAPI.AlgoAPI;
 import algoAPI.AlgoAction;
@@ -6,7 +6,6 @@ import algoAPI.AlgoOperation;
 import algoAPI.AlgoResultCallback;
 import events.LiveEvent;
 import org.apache.log4j.Logger;
-import utils.NanoClock;
 
 public abstract class AlgoDelegator<T> extends AlgoAbstract implements Batcher<T> {
     private final static Logger log = Logger.getLogger(AlgoDelegator.class);

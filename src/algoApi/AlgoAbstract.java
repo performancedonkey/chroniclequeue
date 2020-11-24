@@ -1,4 +1,4 @@
-package simulation;
+package algoApi;
 
 import algoAPI.AlgoAPI;
 import algoAPI.AlgoAction;
@@ -57,8 +57,6 @@ public abstract class AlgoAbstract implements AlgoAPI {
             process((BookAtom) liveEvents[i], i + 1 == batchSize);
         }
     }
-
-//    int lastPushed = 0;
 
     protected void process(BookAtom liveEvent, boolean isLast) {
 

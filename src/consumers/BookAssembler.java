@@ -1,35 +1,40 @@
 package consumers;
 
+import algoApi.AlgoAbstract;
+import events.LiveEvent;
 import events.book.BookAtom;
-import events.book.LeanQuote;
 import events.feed.InitializeTradableEvent;
 import org.agrona.collections.Int2ObjectHashMap;
-import org.apache.log4j.Logger;
-import simulation.AlgoAbstract;
 import trackers.OrderTracker;
 import trackers.PrivateOrderBook;
 import trackers.Tracker;
 
 public class BookAssembler extends AlgoAbstract {
-    private final Logger log = Logger.getLogger(BookAssembler.class);
 
     @Override
-    protected void process(BookAtom liveEvent, boolean isLast) {
-        LeanQuote event = (LeanQuote) liveEvent;
+    protected void process(BookAtom event, boolean isLast) {
         int securityId = event.getSecurityId();
         PrivateOrderBook book = getBook(securityId);
+        OrderTracker affected = book.assimilate(event);
 
-        book.initEvent.assimilate(event);
-//        log.info(batchNumber + "\t" + count + "\t" + book.getTimestamps().getSequence() + "\t" + event.getLayer() + "\t" + event);
-//        int cur = liveEvent.getTimestamps().getSequence();
-//        if (cur > lastPushed + 1)
-//            System.out.println(cur);
-//        lastPushed = cur;
+        if (affected != null) {
+//            react(event, affected);
+        }
+
+    }
+
+    private void react(BookAtom event, OrderTracker affected) {
+        if (!event.getType().isPrivate() &&
+                affected.getPriority() <= 1 &&
+                affected.getProtection() <= 2 &&
+                affected.getLayer().isTob()) {
+            System.out.println(event + " cancel order " + affected.getId() + " / " + affected.getPublicId());
+        }
     }
 
     private final Int2ObjectHashMap<PrivateOrderBook> books = new Int2ObjectHashMap<>();
 
-    public void addBook(PrivateOrderBook privateBook) {
+    private void addBook(PrivateOrderBook privateBook) {
         books.put(privateBook.initEvent.tradableId, privateBook);
     }
 
@@ -40,39 +45,44 @@ public class BookAssembler extends AlgoAbstract {
             ite.marketDepth = 10;
             ite.impliedLayers = 0;
             ite.setTradableId(securityId);
-            addBook(new PrivateOrderBook(ite));
+            // isProd determines if we expect to find orders in public book
+            // live disables tracking and logging
+            addBook(new PrivateOrderBook(ite, isProd, isLive, false));
         }
         return books.get(securityId);
     }
 
     public void reset() {
-        LeanQuote.resetCreated();
+//        LeanQuote.resetCreated();
         for (int securityId : books.keySet()) {
             // Swap the private book with all the private info for a fresh one.
-            PrivateOrderBook privateBook = books.replace(securityId, new PrivateOrderBook(books.get(securityId).initEvent));
-            // Log deals before we clear the data
+            PrivateOrderBook privateBook = books.replace(securityId, new PrivateOrderBook(books.get(securityId).initEvent, isProd, isLive, false));
             Tracker tracker = privateBook.getTracker();
-            int nonPerf = 0;
-            int ix = 0;
-            int aggressive = 0;
-            for (OrderTracker orderTracker : privateBook.getTrackers()) {
-                ix++;
-                if (orderTracker.getPublicOrder() == null)
-                    aggressive++;
-                // Only left are trades where private beat public and we were not first in queue
-                if (orderTracker.getPriority() != 0) {
-//                    System.out.println(ix + " " + nonPerf++ + "\t" + orderTracker.getPriority() + " / " +
-//                            orderTracker.getOrdersAhead() + (orderTracker.getPublicOrder() == null ? " Agg" : " Pas ") +
-//                            " P: " + orderTracker.getPublicOrder() + ":" + orderTracker + "\t" + orderTracker.ordersAheadStr)
-                    ;
-                }
-            }
-            if (tracker.getVolume() != 0) {
-//privateBook.serialize();
-//                System.out.println(privateBook.initEvent.tradableId + ": " + tracker);
-            }
+            // Log deals before we clear the data
+//            logResults(privateBook, tracker);
             tracker.detach();
             privateBook.clear();
+        }
+    }
+
+    private void logResults(PrivateOrderBook privateBook, Tracker tracker) {
+        int nonPerf = 0;
+        int ix = 0;
+        int aggressive = 0;
+        for (OrderTracker orderTracker : privateBook.getTrackers()) {
+            ix++;
+            if (orderTracker.getPublicOrder() == null)
+                aggressive++;
+            // Only left are trades where private beat public and we were not first in queue
+            if (orderTracker.getPriority() != 0) {
+                System.out.println(nonPerf++ + " " + ix + "\t" + orderTracker.getPriority() + " / " +
+                        orderTracker.getOrdersAhead() + (orderTracker.getPublicOrder() == null ? " Agg" : " Pas ") +
+                        " P: " + orderTracker.getPublicOrder() + ":" + orderTracker + "\t" + orderTracker.ordersAheadStr)
+                ;
+            }
+        }
+        if (tracker.getVolume() > 0) {
+            System.out.println(privateBook.initEvent.tradableId + ": " + tracker);
         }
     }
 

@@ -1,4 +1,4 @@
-package simulation;
+package algoApi;
 
 import algoAPI.AlgoAPI;
 import com.lmax.disruptor.EventTranslatorOneArg;

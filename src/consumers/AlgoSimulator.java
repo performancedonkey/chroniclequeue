@@ -1,4 +1,4 @@
-package simulation;
+package consumers;
 
 import algoAPI.AlgoAPI;
 import algoAPI.AlgoResultCallback;
@@ -6,6 +6,7 @@ import com.lmax.disruptor.RingBuffer;
 import disrupcher.EventHolder;
 import events.book.BookAtom;
 import org.apache.log4j.Logger;
+import algoApi.AlgoDisruptor;
 import simulator.ExchangeSimulator;
 
 public class AlgoSimulator extends AlgoDisruptor<BookAtom> {
