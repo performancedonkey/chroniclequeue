@@ -8,7 +8,7 @@ import trackers.OrderTracker;
 import trackers.PrivateOrderBook;
 import trackers.Tracker;
 
-public class AlgoBookManager extends AlgoAbstract {
+public class BookAssembler extends AlgoAbstract {
     @Override
     public void pushBatch(long batchNumber, LiveEvent[] batch, int batchSize) {
         for (int i = 0; i < batchSize; i++) {
@@ -22,13 +22,18 @@ public class AlgoBookManager extends AlgoAbstract {
         OrderTracker affected = book.assimilate(event);
 
         if (affected != null) {
-//            System.out.println(DateUtils.formatDateTimeMicro(event.getTimestamp()) + " @ " +
-//                    event + " \t-> " + affected.getId() + " " +
-//                    affected.getPublicId() + " " + affected.getPriority() + " " + affected.getProtection());
-//        } else if (event.getType().isPrivate()) {
-//            System.out.println(DateUtils.formatDateTimeMicro(event.getTimestamp()) + " @ " + event);
+//            react(event, affected);
         }
 
+    }
+
+    private void react(BookAtom event, OrderTracker affected) {
+        if (!event.getType().isPrivate() &&
+                affected.getPriority() <= 1 &&
+                affected.getProtection() <= 2 &&
+                affected.getLayer().isTob()) {
+            System.out.println(event + " cancel order " + affected.getId() + " / " + affected.getPublicId());
+        }
     }
 
     private final Int2ObjectHashMap<PrivateOrderBook> books = new Int2ObjectHashMap<>();

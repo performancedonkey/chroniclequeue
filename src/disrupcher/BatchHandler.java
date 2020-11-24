@@ -11,13 +11,14 @@ public class BatchHandler<T> extends EarlyReleaseHandler<EventHolder<T>> {
 
     long assimilated = 0;
 
-    final AlgoAPI manager;
+    private final LiveEvent[] batch;
+    private final AlgoAPI manager;
 
-    public BatchHandler(AlgoAPI manager) {
+    public BatchHandler(AlgoAPI manager, int maxSize) {
         this.manager = manager;
+        batch = new LiveEvent[maxSize];
     }
 
-    private LiveEvent[] batch = new LiveEvent[256];
     private int batchSize = 0;
 
     AtomicInteger batchId = new AtomicInteger(0);
@@ -51,7 +52,7 @@ public class BatchHandler<T> extends EarlyReleaseHandler<EventHolder<T>> {
 
     private synchronized void dispatch() {
         manager.pushBatch(batchId.get(), batch, batchSize);
-
+        // reset batch
         batchSize = 0;
         batchId.incrementAndGet();
     }

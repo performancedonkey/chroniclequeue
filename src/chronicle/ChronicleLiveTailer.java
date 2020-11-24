@@ -122,7 +122,10 @@ public class ChronicleLiveTailer {
             LogUtil.log(iter + "# Done processing from memory", start, assimilated);
             for (PrivateOrderBook book : books.values()) {
                 if (!book.tracker.getExecuted().isEmpty())
-                    LogUtil.log(book.initEvent.tradableId + ": " + book.tracker.toString(), start);
+//                    LogUtil.log(book.initEvent.tradableId + ": " + book.tracker.toString(), start);
+                    LogUtil.log(book.initEvent.tradableId + ": " + book.tracker.toString() +
+                            " / " + book.tracker.getMin() + " / " + book.tracker.getMax(), start);
+
             }
         }
     }
@@ -178,11 +181,11 @@ public class ChronicleLiveTailer {
     public PrivateOrderBook getBook(int securityId) {
         if (!books.containsKey(securityId)) {
             InitializeTradableEvent ite = new InitializeTradableEvent();
-            ite.setTradableId(securityId);
             // TODO set dynamically per instrument
             ite.step = 0.25f;
             ite.marketDepth = 10;
             ite.impliedLayers = 0;
+            ite.setTradableId(securityId);
             books.put(securityId, new PrivateOrderBook(ite));
         }
         return books.get(securityId);

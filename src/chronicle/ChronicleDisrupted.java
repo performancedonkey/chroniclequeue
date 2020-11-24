@@ -16,7 +16,7 @@ import net.openhft.lang.thread.NamedThreadFactory;
 import org.agrona.collections.IntHashSet;
 import org.apache.log4j.Logger;
 import org.apache.log4j.xml.DOMConfigurator;
-import simulation.AlgoBookManager;
+import simulation.BookAssembler;
 import simulation.AlgoDelegator;
 import simulation.AlgoDisruptor;
 import trackers.PrivateOrderBook;
@@ -79,13 +79,13 @@ public class ChronicleDisrupted {
         log.info("Filtering for " + securitiesToFilter);
     }
 
-    public boolean filter(int securityId) {
-        return securitiesToFilter.isEmpty() || securitiesToFilter.contains(securityId);
+    public boolean verify(LeanQuote quote) {
+        return verify(quote.getSecurityId());
+//        return quote.getType().isPrivate();
     }
 
-    public boolean filter(LeanQuote quote) {
-        return false;
-//        return quote.getType().isPrivate();
+    public boolean verify(int securityId) {
+        return securitiesToFilter.isEmpty() || securitiesToFilter.contains(securityId);
     }
 
     private Chronicle queue;
@@ -113,7 +113,7 @@ public class ChronicleDisrupted {
         // Get the ring buffer from the Disruptor to be used for publishing.
         RingBuffer<EventHolder<BookAtom>> ringBuffer = disruptor.getRingBuffer();
         batcher = new AlgoDisruptor<>(getAlgo(), log, ringBuffer);
-        handler = new BatchHandler(batcher);
+        handler = new BatchHandler(batcher, 256);
         // Connect the handler
         disruptor.handleEventsWith(handler);
 
@@ -122,7 +122,7 @@ public class ChronicleDisrupted {
     }
 
     private AlgoAPI getAlgo() {
-        return new AlgoBookManager();
+        return new BookAssembler();
     }
 
     LeanQuote current = null;
@@ -150,6 +150,11 @@ public class ChronicleDisrupted {
             batcher.pushNext(current, isNewBatch);
 //            if (isNewBatch)
 //                simulateLoad(current, next);
+            try {
+                Thread.sleep(1);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
             current = next;
         }
 //        } while (isSync || current != null);
@@ -161,7 +166,7 @@ public class ChronicleDisrupted {
         do {
             next = ChronicleTailer.getNext(tailer);
             tailed++;
-        } while (filter(next) && tailer.nextIndex());
+        } while (!verify(next) && tailer.nextIndex());
         return next;
     }
 
@@ -220,7 +225,7 @@ public class ChronicleDisrupted {
         tailed = 0;
         handler.reset();
         batcher.reset();
-        ((AlgoBookManager) batcher.getNested()).reset();
+        ((BookAssembler) batcher.getNested()).reset();
     }
 
     private void done(long start) {
@@ -232,9 +237,10 @@ public class ChronicleDisrupted {
         if (iter % 2 == 0) {
             LogUtil.log(iter + "# Done processing from memory " + batcher.getLongestBatch() + " / " + batches +
                     " / " + batcher.getPushed() + " / " + handler.getBatches(), start, tailed);
-            PrivateOrderBook book = ((AlgoBookManager) batcher.getNested()).getBook(targetId);
+            PrivateOrderBook book = ((BookAssembler) batcher.getNested()).getBook(targetId);
             if (!book.tracker.getExecuted().isEmpty())
-                LogUtil.log(book.initEvent.tradableId + ": " + book.tracker.toString(), start);
+                LogUtil.log(book.initEvent.tradableId + ": " + book.tracker.toString() +
+                        " / " + book.tracker.getMin() + " / " + book.tracker.getMax(), start);
         }
     }
 

@@ -1,25 +1,17 @@
 package chronicle;
 
 import algoAPI.AlgoAPI;
-import com.lmax.disruptor.BusySpinWaitStrategy;
-import com.lmax.disruptor.RingBuffer;
-import com.lmax.disruptor.dsl.Disruptor;
-import com.lmax.disruptor.dsl.ProducerType;
-import disrupcher.BatchHandler;
-import disrupcher.EventHolder;
 import events.book.BookAtom;
 import events.book.LeanQuote;
 import net.openhft.chronicle.Chronicle;
 import net.openhft.chronicle.ChronicleQueueBuilder;
 import net.openhft.chronicle.ExcerptTailer;
-import net.openhft.lang.thread.NamedThreadFactory;
 import org.agrona.collections.IntHashSet;
 import org.apache.log4j.Logger;
 import org.apache.log4j.xml.DOMConfigurator;
 import simulation.AlgoBatcher;
-import simulation.AlgoBookManager;
+import simulation.BookAssembler;
 import simulation.AlgoDelegator;
-import simulation.AlgoDisruptor;
 import trackers.PrivateOrderBook;
 import utils.LogUtil;
 import utils.NanoClock;
@@ -80,12 +72,12 @@ public class ChronicleBatcher {
         log.info("Filtering for " + securitiesToFilter);
     }
 
-    public boolean filter(int securityId) {
+    public boolean validate(int securityId) {
         return securitiesToFilter.isEmpty() || securitiesToFilter.contains(securityId);
     }
 
-    public boolean filter(LeanQuote quote) {
-        return false;
+    public boolean validate(LeanQuote quote) {
+        return validate(quote.getSecurityId());
 //        return quote.getType().isPrivate();
     }
 
@@ -121,7 +113,7 @@ public class ChronicleBatcher {
     }
 
     private AlgoAPI getAlgo() {
-        return new AlgoBookManager();
+        return new BookAssembler();
     }
 
     LeanQuote current = null;
@@ -144,7 +136,6 @@ public class ChronicleBatcher {
             boolean isNewBatch = isNewBatch(current, next);
             if (isNewBatch) {
                 current.setLast(true);
-                ++batches;
             }
             batcher.pushNext(current, isNewBatch);
 //            if (isNewBatch)
@@ -160,7 +151,7 @@ public class ChronicleBatcher {
         do {
             next = ChronicleTailer.getNext(tailer);
             tailed++;
-        } while (filter(next) && tailer.nextIndex());
+        } while (!validate(next) && tailer.nextIndex());
         return next;
     }
 
@@ -193,7 +184,6 @@ public class ChronicleBatcher {
 
     // 100 us
     long maxSleep = 100_000l;
-    long batches = 0;
 
     private boolean simulateLoad(LeanQuote current, LeanQuote next) {
         if (current == null) return false;
@@ -215,20 +205,20 @@ public class ChronicleBatcher {
     }
 
     private void reset() {
-        batches = 0;
         tailed = 0;
 //        handler.reset();
         batcher.reset();
-        ((AlgoBookManager) batcher.getNested()).reset();
+        ((BookAssembler) batcher.getNested()).reset();
     }
 
     private void done(long start) {
         if (iter % 10 == 0) {
-            LogUtil.log(iter + "# Done processing from memory " + batcher.getLongestBatch() + " / " + batches +
-                    " / " + batcher.getPushed() + " / " + batcher.getBatches(), start, tailed);
-            PrivateOrderBook book = ((AlgoBookManager) batcher.getNested()).getBook(targetId);
+            LogUtil.log(iter + "# Done processing from memory " + batcher.getLongestBatch() +
+                    " / " + batcher.getBatches() + " / " + batcher.getPushed(), start, tailed);
+            PrivateOrderBook book = ((BookAssembler) batcher.getNested()).getBook(targetId);
             if (!book.tracker.getExecuted().isEmpty())
-                LogUtil.log(book.initEvent.tradableId + ": " + book.tracker.toString(), start);
+                LogUtil.log(book.initEvent.tradableId + ": " + book.tracker.toString() +
+                        " / " + book.tracker.getMin() + " / " + book.tracker.getMax(), start);
         }
     }
 

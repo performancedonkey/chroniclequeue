@@ -1,7 +1,9 @@
 package chronicle;
 
+import binary.AbstractFileReader;
 import events.AbstractEvent;
 import events.LiveEvent;
+import events.book.BookAtom;
 import events.book.LeanQuote;
 import events.feed.InitializeTradableEvent;
 import events.feed.MarketOrder;
@@ -10,6 +12,7 @@ import events.rt.HitAndShadowEvent;
 import org.apache.log4j.Logger;
 import org.apache.log4j.xml.DOMConfigurator;
 import recorder.RecordingPlayer;
+import utils.LogUtil;
 
 import java.io.File;
 
@@ -50,31 +53,35 @@ public class MainPlayer {
         play(player);
     }
 
-    static long start = System.currentTimeMillis();
+    static long start = System.nanoTime();
 
     private static void play(RecordingPlayer player) {
-        TestMap.log("Loading " + fileName, start);
-        start = System.currentTimeMillis();
+        LogUtil.log("Loading " + fileName, start);
+        start = System.nanoTime();
         OrderEvent current = null, prev;
+        AbstractFileReader<LiveEvent> reader = player.getReader();
         while (player.isActive()) {
             try {
-                LiveEvent next = player.next();
-//                System.out.println(next);
-                if (!(next instanceof OrderEvent)) continue;
+                LiveEvent next = reader.next();
+                if (!(next instanceof OrderEvent) || !queueAppender.filter(((BookAtom) next).getSecurityId())) continue;
+//                System.out.println(((OrderEvent) next).getTimestamps().getSequence() + " " + next);
                 prev = current;
                 current = (OrderEvent) next;
+//                long toSleep = calcSleep(prev, current);
+                player.pushEvent(reader.getCount(), current);
+//                if (current.getId() == 6816519540921l)
+//                    System.out.println(current);
+
                 LeanQuote quote = LeanQuote.getQuote(current);
-
-                long toSleep = calcSleep(prev, current);
-                if (!queueAppender.append(quote)) toSleep = 0;
-
-                if (toSleep > 0)
-                    Thread.sleep(toSleep);
+                boolean append = queueAppender.append(quote);
+//                if (!append) toSleep = 0;
+//                if (toSleep > 0)
+//                    Thread.sleep(toSleep);
             } catch (Exception e) {
                 log.error("wtf writing! " + current, e);
             }
         }
-        TestMap.log("Done loading " + queueAppender.getSize(), start);
+        LogUtil.log("Done loading " + queueAppender.getSize(), start);
     }
 
     static int maxSleep = 0;
