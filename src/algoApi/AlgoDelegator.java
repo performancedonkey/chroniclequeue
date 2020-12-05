@@ -5,57 +5,72 @@ import algoAPI.AlgoAction;
 import algoAPI.AlgoOperation;
 import algoAPI.AlgoResultCallback;
 import events.LiveEvent;
+import events.feed.InitializeTradableEvent;
 import org.apache.log4j.Logger;
+import trackers.PrivateOrderBook;
+import utils.NanoClock;
 
 public abstract class AlgoDelegator<T> extends AlgoAbstract implements Batcher<T> {
-    private final static Logger log = Logger.getLogger(AlgoDelegator.class);
-    protected final AlgoAPI nested;
+    protected final static Logger log = Logger.getLogger(AlgoDelegator.class);
+    protected final AlgoAbstract nested;
 
-    public AlgoDelegator(AlgoAPI nested, Logger log) {
+    public AlgoDelegator(AlgoAbstract nested, Logger log) {
         this.nested = nested;
 //        this.log = log;
     }
 
     @Override
-    public void initTradable(LiveEvent initializeTradableEvent) {
-        nested.initTradable(initializeTradableEvent);
+    public void initTradable(LiveEvent initEvent) {
+        nested.initTradable(initEvent);
+    }
+
+    @Override
+    public InitializeTradableEvent getTarget() {
+        return nested.getTarget();
+    }
+
+    @Override
+    public void done() {
+        nested.done();
+    }
+
+    public PrivateOrderBook getBook(int securityId) {
+        return nested.getBook(securityId);
     }
 
     public int longestBatch;
     public long longestBatchId;
 
+    private long delegateTime;
+
     @Override
-    public void pushBatch(long batchNumber, LiveEvent[] events, int batchSize) {
-//        long start = NanoClock.getNanoTimeNow();
-        nested.pushBatch(batchNumber, events, batchSize);
+    public void pushBatch(long batchNumber, LiveEvent[] batch, int batchSize) {
+        delegateTime = NanoClock.getNanoTimeNow();
+        nested.pushBatch(batchNumber, batch, batchSize);
         totalPushed += batchSize;
         batches++;
         if (batchSize > longestBatch) {
             longestBatch = batchSize;
             longestBatchId = batchNumber;
-//                if (batchSize > 160)
-//                    System.out.println("new longest #" + batchId + ": " + batchSize);
         }
 
-//        long procTime = System.nanoTime() - start;
-//        log.info("Pushed #" + batchNumber + ":\t" + batchSize + "\t -> " + totalPushed + "\t us " + procTime / 1_000);
-//        if (procTime > 1_000_000) { // 1 ms
-//            if (isLive)
-//                log.warn(batchNumber + " High process time: " + (procTime / 1_000_000) + " ms for " + batchNumber + " events");
-//        }
+        if (isLive) {
+            long procTime = System.nanoTime() - delegateTime;
+            log.info("Pushed #" + batchNumber + ":\t" + batchSize + "\t -> " + totalPushed + "\t us " + procTime / 1_000);
+            if (procTime > 1_000_000) { // 1 ms
+                log.warn(batchNumber + " High process time: " + (procTime / 1_000_000) + " ms for " + batchNumber + " events");
+            }
+        }
     }
+
 
     public long getPushed() {
         return totalPushed;
     }
 
     protected int batches = 0;
-    protected long totalPushed = 0;
 
-    @Override
-    public void done() {
-        nested.done();
-    }
+    protected long totalPushed = 0;
 
     @Override
     public void addCallbackListener(AlgoResultCallback callbackListener) {
@@ -77,11 +92,13 @@ public abstract class AlgoDelegator<T> extends AlgoAbstract implements Batcher<T
         nested.setProperty(property, value);
     }
 
-    public AlgoAPI getNested() {
+    public AlgoAbstract getNested() {
         return nested;
     }
 
+    @Override
     public void reset() {
+        nested.reset();
         totalPushed = 0;
         longestBatch = 0;
         batches = 0;
@@ -92,7 +109,6 @@ public abstract class AlgoDelegator<T> extends AlgoAbstract implements Batcher<T
     }
 
     public int getBatches() {
-
         return batches;
     }
 }

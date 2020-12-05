@@ -10,8 +10,8 @@ public class LogUtil {
         long now = System.nanoTime();
         long timeDiff = (now - start) / 1_000_000;
         lowest = Math.min(lowest, timeDiff);
-        int kmps = (int) (processed / timeDiff);
-        log.error(String.format("Took (ms) %d / %d - %s batch of %d | kmps:  %d", timeDiff, lowest, txt, processed, kmps));
+        int kmps = timeDiff == 0 ? 0 : (int) (processed / timeDiff);
+        log.error(String.format("Took (ms) %d / %d - %s / %d | kmps:  %d", timeDiff, lowest, txt, processed, kmps));
     }
 
     public static void log(String txt, long start) {

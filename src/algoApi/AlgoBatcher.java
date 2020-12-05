@@ -4,6 +4,7 @@ import algoAPI.AlgoAPI;
 import disrupcher.BatchHandler;
 import disrupcher.EventHolder;
 import org.apache.log4j.Logger;
+import utils.NanoClock;
 
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -11,7 +12,7 @@ public class AlgoBatcher<T> extends AlgoDelegator<T> {
     private static final Logger log = Logger.getLogger(AlgoBatcher.class);
     BatchHandler<T> batchHandler;
 
-    public AlgoBatcher(AlgoAPI nested, Logger log) {
+    public AlgoBatcher(AlgoAbstract nested, Logger log) {
         super(nested, log);
         batchHandler = new BatchHandler<>(this, 256);
     }
@@ -26,7 +27,7 @@ public class AlgoBatcher<T> extends AlgoDelegator<T> {
         batchHandler.onEvent(set(dummy, sequence, next), sequence, isLast);
     }
 
-    private EventHolder<T> set(EventHolder<T> eventHolder, long sequence, T newEvent) {
+    protected EventHolder<T> set(EventHolder<T> eventHolder, long sequence, T newEvent) {
         eventHolder.set(newEvent, sequence);
         return eventHolder;
     }

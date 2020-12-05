@@ -1,6 +1,7 @@
 package chronicle;
 
-import algoAPI.AlgoAPI;
+import algoApi.AlgoAbstract;
+import consumers.AlgoSimulator;
 import consumers.BookAssembler;
 import events.book.BookAtom;
 import events.book.LeanQuote;
@@ -23,7 +24,8 @@ import java.util.concurrent.Executors;
 
 public class ChronicleBatcher {
     private static final Logger log = Logger.getLogger(ChronicleBatcher.class);
-    public static int targetId = 14028;
+    public static int targetId = 12181;
+    //    public static int targetId = 14028;
     public static int iter = 0;
     int tailed = 0;
     private final boolean shouldDebug = log.isDebugEnabled();
@@ -37,8 +39,8 @@ public class ChronicleBatcher {
         }
         String pathStr = Paths.temp_path + "chronicle/" + queueName;
 
-        for (int tailers = 0; tailers < 1; tailers++) {
-            Executors.newSingleThreadExecutor().execute(() -> {
+//        for (int tailers = 0; tailers < 1; tailers++) {
+//            Executors.newSingleThreadExecutor().execute(() -> {
 
                 final ChronicleBatcher queueTailer = new ChronicleBatcher(pathStr);
 
@@ -48,13 +50,13 @@ public class ChronicleBatcher {
                     }
                 }
 
-                for (; iter < 10_000; iter++) {
+                for (; iter < 5; iter++) {
                     queueTailer.run();
                     if (iter == 0)
                         log.error("Filtering for " + queueTailer.securitiesToFilter.toString());
                 }
-            });
-        }
+//            });
+//        }
 
         if (args.length > 2) {
             long offset = Long.parseLong(args[2]);
@@ -94,26 +96,11 @@ public class ChronicleBatcher {
             log.error("MM file not loaded: " + queueName, e);
         }
 
-//        // Specify the size of the ring buffer, must be power of 2.
-//        int bufferSize = (int) Math.pow(2, 10);
-//
-//        // Construct the Disruptor
-//        Disruptor<EventHolder<BookAtom>> disruptor = new Disruptor<>(EventHolder::new, bufferSize,
-//                new NamedThreadFactory("Disruptor"), ProducerType.SINGLE, new BusySpinWaitStrategy());
-//
-//        // Get the ring buffer from the Disruptor to be used for publishing.
-//        RingBuffer<EventHolder<BookAtom>> ringBuffer = disruptor.getRingBuffer();
-        batcher = new AlgoBatcher<>(getAlgo(), log);
-//        handler = new BatchHandler(batcher);
-//        // Connect the handler
-//        disruptor.handleEventsWith(handler);
-//
-//        // Start the Disruptor, starts all threads running
-//        disruptor.start();
+        batcher = new AlgoBatcher<>(createAlgo(), log);
     }
 
-    private AlgoAPI getAlgo() {
-        return new BookAssembler();
+    private AlgoAbstract createAlgo() {
+        return new AlgoSimulator(new BookAssembler(), log);
     }
 
     LeanQuote current = null;
@@ -208,14 +195,13 @@ public class ChronicleBatcher {
         tailed = 0;
 //        handler.reset();
         batcher.reset();
-        ((BookAssembler) batcher.getNested()).reset();
     }
 
     private void done(long start) {
         if (iter % 10 == 0) {
             LogUtil.log(iter + "# Done processing from memory " + batcher.getLongestBatch() +
-                    " / " + batcher.getBatches() + " / " + batcher.getPushed(), start, batcher.getPushed());
-            PrivateOrderBook book = ((BookAssembler) batcher.getNested()).getBook(targetId);
+                    " / " + batcher.getBatches() + " / " + tailed, start, batcher.getPushed());
+            PrivateOrderBook book = batcher.getBook(targetId);
             if (!book.tracker.getExecuted().isEmpty())
                 LogUtil.log(book.initEvent.tradableId + ": " + book.tracker.toString() +
                         " / " + book.tracker.getMin() + " / " + book.tracker.getMax(), start);

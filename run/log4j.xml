@@ -9,6 +9,12 @@
         </layout>
     </appender>
 
+    <!-- categories -->
+    <category name="algorithms.AlgoAPIImpl">
+        <priority value="WARN" />
+    </category>
+	
+    <!-- root -->
     <root>
         <priority value="INFO"/>
         <appender-ref ref="console"/>

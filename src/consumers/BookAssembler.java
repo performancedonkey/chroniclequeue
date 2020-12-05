@@ -1,15 +1,18 @@
 package consumers;
 
+import algoAPI.AlgoExecution;
+import algoAPI.AlgoOperation;
 import algoApi.AlgoAbstract;
-import events.LiveEvent;
 import events.book.BookAtom;
 import events.feed.InitializeTradableEvent;
-import org.agrona.collections.Int2ObjectHashMap;
+import org.apache.log4j.Logger;
 import trackers.OrderTracker;
 import trackers.PrivateOrderBook;
 import trackers.Tracker;
+import utils.NanoClock;
 
 public class BookAssembler extends AlgoAbstract {
+    private static final Logger log = Logger.getLogger(BookAssembler.class);
 
     @Override
     protected void process(BookAtom event, boolean isLast) {
@@ -17,55 +20,39 @@ public class BookAssembler extends AlgoAbstract {
         PrivateOrderBook book = getBook(securityId);
         OrderTracker affected = book.assimilate(event);
 
-        if (affected != null) {
-//            react(event, affected);
+        if (event.getType().isTicker() && event.getLayer() < -1) {
+            // Fill the room in the first layer -  close the spread in the trade direction
+            float price = book.getPublicBook().getSideOrders(event.getSide()).getPrice((short) -1);
+            callbackListener.operate(currentBatch, price + event.getSide().getAction().toString() + generateUserRef(), AlgoOperation.quote, true,
+                    1, price,
+                    event.getSide().getAction(), AlgoExecution.LMT);
         }
-
+        if (affected != null) {
+            react(event, affected);
+//        {
+//                book.cancel(affected);
+//            }
+        }
     }
 
-    private void react(BookAtom event, OrderTracker affected) {
+    private String generateUserRef() {
+        InitializeTradableEvent target = getTarget();
+        return target.tradableId + "_" + target.getBook().getLastAssimilated().getTimestamps().getSequence();
+    }
+
+    private boolean react(BookAtom event, OrderTracker affected) {
         if (!event.getType().isPrivate() &&
-                affected.getPriority() <= 1 &&
+                affected.getPriority() > 1 &&
                 affected.getProtection() <= 2 &&
                 affected.getLayer().isTob()) {
-            System.out.println(event + " cancel order " + affected.getId() + " / " + affected.getPublicId());
+//            log.warn("Cancel order " + affected.getPublicId() + " (" + affected.getId() + ") :" + event);
+            callbackListener.cancelOperate(NanoClock.getNanoTimeNow(), affected.getCurrent().getUserRef());
+            return true;
         }
+        return false;
     }
 
-    private final Int2ObjectHashMap<PrivateOrderBook> books = new Int2ObjectHashMap<>();
-
-    private void addBook(PrivateOrderBook privateBook) {
-        books.put(privateBook.initEvent.tradableId, privateBook);
-    }
-
-    public PrivateOrderBook getBook(int securityId) {
-        if (!books.containsKey(securityId)) {
-            InitializeTradableEvent ite = new InitializeTradableEvent();
-            ite.step = 0.25f;
-            ite.marketDepth = 10;
-            ite.impliedLayers = 0;
-            ite.setTradableId(securityId);
-            // isProd determines if we expect to find orders in public book
-            // live disables tracking and logging
-            addBook(new PrivateOrderBook(ite, isProd, isLive, false));
-        }
-        return books.get(securityId);
-    }
-
-    public void reset() {
-//        LeanQuote.resetCreated();
-        for (int securityId : books.keySet()) {
-            // Swap the private book with all the private info for a fresh one.
-            PrivateOrderBook privateBook = books.replace(securityId, new PrivateOrderBook(books.get(securityId).initEvent, isProd, isLive, false));
-            Tracker tracker = privateBook.getTracker();
-            // Log deals before we clear the data
-//            logResults(privateBook, tracker);
-            tracker.detach();
-            privateBook.clear();
-        }
-    }
-
-    private void logResults(PrivateOrderBook privateBook, Tracker tracker) {
+    protected void logResults(PrivateOrderBook privateBook, Tracker tracker) {
         int nonPerf = 0;
         int ix = 0;
         int aggressive = 0;

@@ -28,21 +28,20 @@ public class BatchHandler<T> extends EarlyReleaseHandler<EventHolder<T>> {
 //        super.onEvent(eventHolder, sequence, endOfBatch);
         onEvent(eventHolder);
         batchSize++;
-//        if (batchId.get() >= 7219 && batchId.get()<=7229)
-//            System.out.println(DateUtils.formatDateTimeMicro(eventHolder.getEvent().getTimestamp()) +" @ " +batchSize +
-//                    " :\t " + eventHolder + " / " + eventHolder.getEvent().getLayer());
         assimilated++;
 
         // All private events are end of batches
-        if (shouldDispatch(eventHolder)) {
+        if (endOfBatch || shouldDispatch(eventHolder)) {
             dispatch();
         }
 //        eventHolder.clear();
     }
 
+    // I dont like this unsafe casting...
     private boolean shouldDispatch(EventHolder<T> eventHolder) {
+        BookAtom event = (BookAtom) eventHolder.getEvent();
         return batchSize == batch.length - 1 ||
-                ((LeanQuote) eventHolder.getEvent()).isLast();
+                event.getType().isPrivate() || ((LeanQuote) event).isLast();
     }
 
     @Override

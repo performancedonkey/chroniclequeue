@@ -22,7 +22,7 @@
             <Policies/>
         </RollingRandomAccessFile>
     </Appenders>
-         
+
     <Loggers>
         <Root level="INFO">
 			<AppenderRef ref="Console" level="INFO"/>

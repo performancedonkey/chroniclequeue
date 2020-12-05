@@ -21,17 +21,16 @@ public class EventHolder<T> {
         return sequence;
     }
 
-    @Override
-    public String toString() {
-        return getSequence() + "#\t" + getEvent();
+    public long getAge() {
+        return NanoClock.getNanoTimeNow() - this.nanoTime;
     }
 
     public void clear() {
-        event = null;
-        sequence = 0;
+        set(null, 0);
     }
 
-    public long getAge() {
-        return NanoClock.getNanoTimeNow() - this.nanoTime;
+    @Override
+    public String toString() {
+        return getSequence() + "#\t" + getEvent();
     }
 }

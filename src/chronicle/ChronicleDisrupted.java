@@ -1,6 +1,7 @@
 package chronicle;
 
 import algoAPI.AlgoAPI;
+import algoApi.AlgoAbstract;
 import com.lmax.disruptor.BusySpinWaitStrategy;
 import com.lmax.disruptor.RingBuffer;
 import com.lmax.disruptor.dsl.Disruptor;
@@ -8,6 +9,7 @@ import com.lmax.disruptor.dsl.ProducerType;
 import consumers.BookAssembler;
 import disrupcher.BatchHandler;
 import disrupcher.EventHolder;
+import disrupcher.HolderFactory;
 import events.book.BookAtom;
 import events.book.LeanQuote;
 import net.openhft.chronicle.Chronicle;
@@ -107,7 +109,7 @@ public class ChronicleDisrupted {
         int bufferSize = (int) Math.pow(2, 10);
 
         // Construct the Disruptor
-        Disruptor<EventHolder<BookAtom>> disruptor = new Disruptor<>(EventHolder::new, bufferSize,
+        Disruptor<EventHolder<BookAtom>> disruptor = new Disruptor<>(new HolderFactory<>(), bufferSize,
                 new NamedThreadFactory("Disruptor"), ProducerType.SINGLE, new BusySpinWaitStrategy());
 
         // Get the ring buffer from the Disruptor to be used for publishing.
@@ -121,7 +123,7 @@ public class ChronicleDisrupted {
         disruptor.start();
     }
 
-    private AlgoAPI getAlgo() {
+    private AlgoAbstract getAlgo() {
         return new BookAssembler();
     }
 
